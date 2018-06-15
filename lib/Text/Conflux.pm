@@ -606,3 +606,240 @@ sub _parse_audience {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Text::Conflux - Generate HTML from Conflux markup
+
+=head1 SYNOPSIS
+
+  use Text::Conflux;
+  use File::Slurp; # optional, for demonstration
+
+  my $text = read_file($file);
+
+  my $c = Text::Conflux->new;
+
+  my $html = $c->convert($text);
+
+  print $html;
+
+=head1 DESCRIPTION
+
+C<confluence2html> is a command line filter that takes in a stream of
+text formatted with a subset of Confluence wiki markup and prints it
+out as HTML.  The goal of this project is to provide a reasonable
+"publish your writing to HTML" experience for users of Confluence wiki
+syntax.
+
+Unlike some other markup languages, this syntax provides features that
+are important for technical documents.  For example:
+
+=over
+
+=item Plaintext Table Syntax
+
+You can use Confluence's table syntax instead of having to write HTML
+tables by hand.  This matters B<a lot> if you create and maintain
+technical documents. (See L</"Tables"> below.)
+
+=item Automatic Tables of Contents
+
+You can use the C<toc> macro to have a nice table of contents
+generated for your document.  (See L</"Tables of Contents"> below).
+
+=back
+
+Note that syntax highlighting plugins are available for Vim, Emacs,
+and other text editors.
+
+=head1 SUPPORTED MARKUP
+
+The subset of Confluence markup that we support is defined as follows:
+
+=over
+
+=item Headers
+
+The C<*> header format is supported, as in C<** Introduction>.
+No other formatting inside the header text is supported. For example,
+C<** Introduction to {{confluence2html}}> will not work.
+
+=item Links
+
+Standard links are supported, e.g., C<[Link to some other page on this
+wiki]>.  This will be rewritten to link to a local file named
+C<link-to-some-other-page-on-this-wiki.html>.  If no such file exists,
+this will be a broken link until the file is created.  The easiest
+(but not only) way to do this is to have another file of Confluence
+markup in the same directory named
+C<link-to-some-other-page-on-this-wiki.txt>, which is generated at the
+same time.
+
+Note: the HTML output from the "standard link" syntax is still subject
+to change.  A more flexible design is needed.  One possibility is to
+design several different output formats the user can choose from;
+another is to allow the user to pass in a custom formatting tag as an
+argument which would allow them to do their own additional processing
+on the output, e.g.,
+
+    $ confluence2html --link-tag=LINK < page.txt | MOAR_FILTERING
+
+External links are supported:
+
+    [Perl home page|http://www.perl.org]
+
+    [http://www.example.org]
+
+Confluence space keys are not supported, since the concept of "spaces"
+has no meaning in terms of processing a stream of text.  A space
+feature could be added by a more sophisticated application built using
+this script.
+
+=item Macros
+
+We support only a few of Confluence's many macros -- mainly those that
+are required for a reasonable "publish your writing to HTML"
+experience.  Here's the list:
+
+=over
+
+=item C<code>
+
+=item C<info>
+
+=item C<tip>
+
+=item C<note>
+
+=item C<warning>
+
+=item C<htmlcomment>
+
+=item C<table>
+
+=item C<toc>
+
+=back
+
+Other than C<toc>, these macros can only be written as single tags on
+their own line that delimit blocks of text.  For example:
+
+    {info}
+    Have some informative text!
+    {info}
+
+No arguments of the form C<{info:title=I am the Title}> are
+supported. If you want to add a title your C<info> block for readers,
+try something like:
+
+    {info}
+    *Important Information!*
+    Your coffee is ready.
+    {info}
+
+Note that the C<info>, C<tip>, C<note>, C<warning>, and C<toc> macros
+output as C<div> tags with class names that correspond to the macro
+name for easy CSS styling.  Example output:
+
+    <div class="info">
+    <p>These instructions assume that you have already installed and
+    correctly configured... For more information, see ... </p>
+    </div>
+
+This makes it trivial to add background colors for added emphasis.
+
+=item Tables of Contents
+
+Prints a table of contents with links to some or all headers on the
+page.  The following arguments are supported (in addition to none at
+all): C<minlevel>, C<maxlevel>, C<exclude> -- and they must be
+supplied in that order.  In other words, you must use the C<toc> macro
+in one of the following ways:
+
+=over
+
+=item C<{toc}>
+
+Prints a table of contents using all headers on the page.
+
+=item C<{toc:minlevel=$N}>
+
+C<$N> must be an integer between 1 and 6.  This prints a table of
+contents with a minimum header size of C<$N>.
+
+=item C<{toc:minlevel=$N|maxlevel=$M}>
+
+C<$N> and C<$M> must be integers between 1 and 6.  This prints a table
+of contents with a minimum header size of C<$N> and a maximum header
+size of C<$M>.
+
+=item C<{toc:minlevel=$N|maxlevel=$M|exclude=$REGEX}>
+
+C<$N> and C<$M> must be integers between 1 and 6, and C<$REGEX> is a
+Perl regular expression -- note that the regular expression is not
+surrounded by quotes.  This prints a table of contents with a minimum
+header size of C<$N> and a maximum header size of C<$M>, with any
+headers matching C<$REGEX> being excluded.
+
+=back
+
+=item Lists
+
+Ordered and unordered lists are supported.  Example:
+
+    * Apple
+    * Banana
+    * Cherry
+
+    1. Rhubarb
+    2. Tomato
+    3. Pomegranate
+
+=item line breaks
+
+The line breaks that appear in the HTML output are those that appear
+in the text file.  There is no support for the Confluence forced line
+break C<\\>.
+
+=item Tables
+
+Tables are supported.  The only requirement is that you must wrap the
+table itself in the C<{table}> macro, e.g.:
+
+    {table}
+    || Name || Rank || Serial Number ||
+    | Steven Fluffernutter | Sergeant | 314159 |
+    | Christopher Crunch | Captain | 271828 |
+    | ... | ... | ... |
+    | ... | ... | ... |
+    {table}
+
+Note: Having to wrap tables in the C<table> macro is probably the most
+error-prone (and thus annoying) requirement from the perspective of an
+experienced Confluence user.  This limitation should be removed in the
+future.
+
+=item Images
+
+Images are supported, with the following syntax:
+
+    !foo.png:450!
+
+This will insert C<foo.png> into the output, at 450 pixels in width.
+In order for confluence2html to know where to find C<foo.png>, you
+must pass the C<--image-directory> flag, e.g., C<confluence2html
+--image-directory /path/to/images < in > out.html>.
+
+=back
+
+=head1 BUGS
+
+Many bugs are lurking in this code; it's a total hack. On the roadmap:
+more tests, refactoring, and perhaps even real parsing.
+
+=head1 AUTHOR
+
+Rich Loveland, L<mailto:r@rmloveland.com>
