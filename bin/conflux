@@ -1,0 +1,45 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use autodie;
+use lib '../lib';
+use Text::Conflux;
+use File::Slurp qw/ slurp /;
+use Pod::Usage;
+
+die qq[Usage: conflux [options] file\n] unless scalar @ARGV >= 1;
+
+my $file = shift;
+
+my $text = slurp $file;
+
+my $c = Text::Conflux->new(
+    {
+        header_toggles  => 1,
+        stylesheet      => qq[/path/to/file.css],
+        audience        => 'enterprise_users',
+        title           => 'Page Title',
+        image_dir       => '/path/to/images',
+        include_dir     => '/path/to/includes',
+        code_sample_dir => '/path/to/code',
+        base_url        => 'https://www.example.com'    # Or '/local/dir' or '.'
+    }
+);
+
+my $html = $c->convert($text);
+
+print $html;
+
+__END__
+
+Variables above correspond to the old script flags, namely:
+
+  --add-header-toggles
+  --stylesheet
+  --audience
+  --title
+  --image-directory
+  --include-directory
+  --code-samples-directory
+  --base-url
