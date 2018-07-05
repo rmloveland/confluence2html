@@ -1,5 +1,6 @@
 *~
 *.patch
+.build/
 code/
 includes/
 style.css
