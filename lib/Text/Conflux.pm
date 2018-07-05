@@ -611,31 +611,45 @@ __END__
 
 =head1 NAME
 
-Text::Conflux - Generate HTML from Conflux markup
+Text::Conflux - Convert Conflux document markup syntax to (X)HTML
 
 =head1 SYNOPSIS
 
-  use Text::Conflux;
-  use File::Slurp; # optional, for demonstration
+From the command line:
 
-  my $text = read_file($file);
+    $ conflux < input.txt > output.html
 
-  my $c = Text::Conflux->new;
+From Perl code:
 
-  my $html = $c->convert($text);
+    use Text::Conflux;
 
-  print $html;
+    my $c = Text::Conflux->new(
+        {
+            header_toggles  => 1,
+            stylesheet      => qq[/path/to/file.css],
+            audience        => 'enterprise_users',
+            title           => 'Page Title',
+            image_dir       => '/path/to/images',
+            include_dir     => '/path/to/includes',
+            code_sample_dir => '/path/to/code',
+            # Or '/local/dir'
+            base_url        => 'https://www.example.com'
+        }
+    );
+
+    my $html = $c->convert($text);
 
 =head1 DESCRIPTION
 
-C<confluence2html> is a command line filter that takes in a stream of
-text formatted with a subset of Confluence wiki markup and prints it
-out as HTML.  The goal of this project is to provide a reasonable
-"publish your writing to HTML" experience for users of Confluence wiki
-syntax.
+Conflux is a markup language that combines elements of Confluence/JIRA
+wiki markup and Emacs outline-mode.
 
-Unlike some other markup languages, this syntax provides features that
-are important for technical documents.  For example:
+The C<conflux> command included with this module is a command line
+filter that takes in a stream of text in Conflux format and prints it
+out as HTML.
+
+Unlike some other markup languages, Conflux syntax provides features
+that are important for technical documents.  For example:
 
 =over
 
@@ -652,8 +666,8 @@ generated for your document.  (See L</"Tables of Contents"> below).
 
 =back
 
-Note that syntax highlighting plugins are available for Vim, Emacs,
-and other text editors.
+Note that syntax highlighting plugins for Vim and Emacs are included
+in this distribution.
 
 =head1 SUPPORTED MARKUP
 
@@ -663,29 +677,22 @@ The subset of Confluence markup that we support is defined as follows:
 
 =item Headers
 
-The C<*> header format is supported, as in C<** Introduction>.
-No other formatting inside the header text is supported. For example,
-C<** Introduction to {{confluence2html}}> will not work.
+The C<*> header format from Emacs outline mode is supported, as in
+C<** Introduction>.  No other formatting inside the header text is
+supported. For example, C<** Introduction to {{confluence2html}}> will
+not work.
 
 =item Links
 
 Standard links are supported, e.g., C<[Link to some other page on this
 wiki]>.  This will be rewritten to link to a local file named
-C<link-to-some-other-page-on-this-wiki.html>.  If no such file exists,
-this will be a broken link until the file is created.  The easiest
-(but not only) way to do this is to have another file of Confluence
-markup in the same directory named
-C<link-to-some-other-page-on-this-wiki.txt>, which is generated at the
-same time.
-
-Note: the HTML output from the "standard link" syntax is still subject
-to change.  A more flexible design is needed.  One possibility is to
-design several different output formats the user can choose from;
-another is to allow the user to pass in a custom formatting tag as an
-argument which would allow them to do their own additional processing
-on the output, e.g.,
-
-    $ confluence2html --link-tag=LINK < page.txt | MOAR_FILTERING
+C<base_url/link-to-some-other-page-on-this-wiki.html> using the
+C<base_url> argument to the constructor.  If no such file exists, this
+will be a broken link until that file is created.  The easiest (but
+not only) way to do this is to have another file of Confluence markup
+in the same directory named
+C<base_url/link-to-some-other-page-on-this-wiki.txt>, and to generate
+it at the same time.
 
 External links are supported:
 
@@ -694,15 +701,17 @@ External links are supported:
     [http://www.example.org]
 
 Confluence space keys are not supported, since the concept of "spaces"
-has no meaning in terms of processing a stream of text.  A space
-feature could be added by a more sophisticated application built using
-this script.
+has no meaning in terms of processing a stream of text, which is what
+this module does.  However, a space feature could be added by a more
+sophisticated application built atop this module.
 
 =item Macros
 
-We support only a few of Confluence's many macros -- mainly those that
-are required for a reasonable "publish your writing to HTML"
-experience.  Here's the list:
+Conflux supports a few Confluence-inspired "macros" -- text tags that wrap a section of content and define how that content is processed.
+
+The supported macros are mainly those that are required for a
+reasonable "publish your writing to HTML" experience.  Here's the
+list:
 
 =over
 
@@ -731,9 +740,10 @@ their own line that delimit blocks of text.  For example:
     Have some informative text!
     {info}
 
-No arguments of the form C<{info:title=I am the Title}> are
-supported. If you want to add a title your C<info> block for readers,
-try something like:
+Unlike old skool Confluence wiki markup, no arguments of the form
+C<{info:title=I am the Title}> are supported. If you want to add a
+title your C<info> block for readers, try something like the
+following:
 
     {info}
     *Important Information!*
@@ -749,7 +759,8 @@ name for easy CSS styling.  Example output:
     correctly configured... For more information, see ... </p>
     </div>
 
-This makes it trivial to add background colors for added emphasis.
+This makes it trivial to do things like add background colors for
+emphasis and the like.
 
 =item Tables of Contents
 
@@ -765,24 +776,26 @@ in one of the following ways:
 
 Prints a table of contents using all headers on the page.
 
-=item C<{toc:minlevel=$N}>
+=item C<{toc:minlevel=2}>
 
-C<$N> must be an integer between 1 and 6.  This prints a table of
-contents with a minimum header size of C<$N>.
+Prints a table of contents with a minimum header size of C<2>.  The
+C<minlevel> argument must be an integer between 1 and 6.
 
-=item C<{toc:minlevel=$N|maxlevel=$M}>
+=item C<{toc:minlevel=2|maxlevel=4}>
 
-C<$N> and C<$M> must be integers between 1 and 6.  This prints a table
-of contents with a minimum header size of C<$N> and a maximum header
-size of C<$M>.
+prints a table of contents with a minimum header size of C<2> and a
+maximum header size of C<4>. C<minlevel> and C<maxlevel> must be
+integers between 1 and 6.
 
-=item C<{toc:minlevel=$N|maxlevel=$M|exclude=$REGEX}>
+=item C<{toc:minlevel=2|maxlevel=4|exclude=Further.*}>
 
-C<$N> and C<$M> must be integers between 1 and 6, and C<$REGEX> is a
-Perl regular expression -- note that the regular expression is not
-surrounded by quotes.  This prints a table of contents with a minimum
-header size of C<$N> and a maximum header size of C<$M>, with any
-headers matching C<$REGEX> being excluded.
+Prints a table of contents with a minimum header size of C<2> and a
+maximum header size of C<4>, with any headers matching C<Further.*>
+(such as "Further Reading") being excluded.
+
+C<minlevel> and C<maxlevel> must be integers between 1 and 6, and
+C<exclude> is a Perl regular expression literal -- note that the
+regular expression is not surrounded by quotes.
 
 =back
 
@@ -790,15 +803,15 @@ headers matching C<$REGEX> being excluded.
 
 Ordered and unordered lists are supported.  Example:
 
-    * Apple
-    * Banana
-    * Cherry
+    + Apple
+    + Banana
+    + Cherry
 
     1. Rhubarb
     2. Tomato
     3. Pomegranate
 
-=item line breaks
+=item Line Breaks
 
 The line breaks that appear in the HTML output are those that appear
 in the text file.  There is no support for the Confluence forced line
@@ -810,17 +823,16 @@ Tables are supported.  The only requirement is that you must wrap the
 table itself in the C<{table}> macro, e.g.:
 
     {table}
-    || Name || Rank || Serial Number ||
-    | Steven Fluffernutter | Sergeant | 314159 |
-    | Christopher Crunch | Captain | 271828 |
-    | ... | ... | ... |
-    | ... | ... | ... |
+    | *Name*               | *Rank*   | *Serial Number* |
+    | Steven Fluffernutter | Sergeant | 314159          |
+    | Christopher Crunch   | Captain  | 271828          |
+    | ...                  | ...      | ...             |
+    | ...                  | ...      | ...             |
     {table}
 
-Note: Having to wrap tables in the C<table> macro is probably the most
-error-prone (and thus annoying) requirement from the perspective of an
-experienced Confluence user.  This limitation should be removed in the
-future.
+Tip: If you use Emacs, you can use the
+L<orgtbl|https://orgmode.org/manual/Orgtbl-mode.html> minor mode to
+navigate, edit, and pretty-print the table contents.
 
 =item Images
 
@@ -829,16 +841,16 @@ Images are supported, with the following syntax:
     !foo.png:450!
 
 This will insert C<foo.png> into the output, at 450 pixels in width.
-In order for confluence2html to know where to find C<foo.png>, you
-must pass the C<--image-directory> flag, e.g., C<confluence2html
---image-directory /path/to/images < in > out.html>.
+In order for C<Text::Conflux> to know where to find C<foo.png>, you
+must pass the C<image_dir> variable to the constructor.
 
 =back
 
 =head1 BUGS
 
-Many bugs are lurking in this code; it's a total hack. On the roadmap:
-more tests, refactoring, and perhaps even real parsing.
+Many bugs are lurking in this code.  Please L<file
+issues|https://github.com/rmloveland/Text-Conflux/issues/new> for any
+that you find.
 
 =head1 AUTHOR
 
